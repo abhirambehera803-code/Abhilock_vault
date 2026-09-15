@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { 
   Lock, Unlock, FileText, Image as ImageIcon, Video, IndianRupee, 
   ShieldCheck, Eye, Sparkles, UserCheck, X, ZoomIn, Layers, ChevronRight,
-  HelpCircle, ShieldAlert
+  HelpCircle, ShieldAlert, Trash2, Crown
 } from 'lucide-react';
 import { MediaFile, UserProfile } from '../types';
 
@@ -13,6 +13,7 @@ interface FileCardProps {
   isOwner: boolean;
   onOpenPaywall: (file: MediaFile) => void;
   onOpenViewer: (file: MediaFile) => void;
+  onDeleteFile?: (file: MediaFile) => void;
 }
 
 export const FileCard: React.FC<FileCardProps> = ({
@@ -22,8 +23,16 @@ export const FileCard: React.FC<FileCardProps> = ({
   isOwner,
   onOpenPaywall,
   onOpenViewer,
+  onDeleteFile,
 }) => {
   const [showSampleModal, setShowSampleModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  const isAdmin = Boolean(
+    activeUser.isAdmin || 
+    activeUser.role === 'admin' || 
+    activeUser.name === 'Abhiram Behera'
+  );
 
   const handleAction = () => {
     if (isOwner || isUnlocked) {
@@ -324,9 +333,95 @@ export const FileCard: React.FC<FileCardProps> = ({
                 </button>
               </div>
             )}
+
+            {/* Admin Delete Action Bar (Strictly available ONLY to Admin - Abhiram Behera) */}
+            {isAdmin && (
+              <div className="pt-2.5 border-t border-rose-100 flex items-center justify-between bg-rose-50/70 -mx-4 -mb-4 px-4 py-2 mt-2 rounded-b-2xl">
+                <div className="flex items-center gap-1 text-[10px] font-bold text-rose-700">
+                  <Crown className="w-3 h-3 text-rose-600" />
+                  <span>Admin Privilege</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowDeleteModal(true);
+                  }}
+                  className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-[11px] font-semibold flex items-center gap-1 shadow-sm transition-all hover:scale-[1.02] active:scale-95"
+                  title="Admin: Delete this file permanently"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Delete</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
+
+      {/* ADMIN DELETE CONFIRMATION MODAL */}
+      {showDeleteModal && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-150"
+          onClick={() => setShowDeleteModal(false)}
+        >
+          <div 
+            className="relative w-full max-w-sm bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 space-y-4 animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center mx-auto shadow-sm">
+              <Trash2 className="w-6 h-6" />
+            </div>
+
+            <div className="text-center space-y-1.5">
+              <div className="inline-flex items-center gap-1 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider bg-rose-50 text-rose-700 border border-rose-200 rounded-full">
+                <Crown className="w-3 h-3" /> Admin Only Privilege
+              </div>
+              <h3 className="text-base font-bold text-slate-900">
+                Delete This File?
+              </h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Are you sure you want to delete <strong className="text-slate-800 font-semibold">&ldquo;{file.title}&rdquo;</strong>?
+              </p>
+            </div>
+
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-[11px] text-slate-600 space-y-1">
+              <div className="flex justify-between">
+                <span className="text-slate-400">Author:</span>
+                <span className="font-semibold text-slate-700">{file.creatorName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Action performed by:</span>
+                <span className="font-semibold text-emerald-700">Abhiram Behera (Admin)</span>
+              </div>
+              <div className="pt-1 text-[10px] text-rose-600 font-medium">
+                • This file will be permanently removed for all friends.
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setShowDeleteModal(false)}
+                className="py-2.5 px-3 rounded-xl border border-slate-200 text-slate-700 text-xs font-semibold hover:bg-slate-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  onDeleteFile?.(file);
+                }}
+                className="py-2.5 px-3 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-md shadow-rose-600/25 transition-all flex items-center justify-center gap-1.5 active:scale-95"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Delete File</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* SAMPLE PREVIEW MODAL (Inspecting blurred & watermarked preview before unlocking) */}
       {showSampleModal && (

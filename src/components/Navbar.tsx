@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShieldCheck, Plus, IndianRupee, Users, Lock, ShieldAlert, ChevronDown, Share2 } from 'lucide-react';
+import { ShieldCheck, Plus, IndianRupee, Users, Lock, ShieldAlert, ChevronDown, Share2, Crown, Shield } from 'lucide-react';
 import { UserProfile } from '../types';
 
 interface NavbarProps {
@@ -79,48 +79,78 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <div className="text-left hidden sm:block">
                   <div className="text-xs font-semibold text-slate-800 flex items-center gap-1">
                     {activeUser.name}
-                    {activeUser.role === 'creator' && (
+                    {(activeUser.isAdmin || activeUser.role === 'admin' || activeUser.name === 'Abhiram Behera') ? (
+                      <span className="text-[9px] bg-emerald-700 text-white px-1.5 py-0.2 rounded-full font-bold flex items-center gap-0.5">
+                        <Crown className="w-2.5 h-2.5" /> App Maker • Admin
+                      </span>
+                    ) : activeUser.role === 'creator' ? (
                       <span className="text-[10px] bg-slate-800 text-white px-1 rounded">Creator</span>
+                    ) : (
+                      <span className="text-[10px] bg-slate-200 text-slate-600 px-1 rounded">Friend</span>
                     )}
                   </div>
-                  <div className="text-[10px] text-slate-500 truncate max-w-[90px]">{activeUser.upiId}</div>
+                  <div className="text-[10px] text-slate-500 truncate max-w-[110px]">{activeUser.upiId}</div>
                 </div>
                 <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
               </div>
 
               {/* Dropdown menu */}
-              <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-slate-200 py-2 hidden group-hover:block hover:block z-50">
-                <div className="px-3 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-                  <Users className="w-3 h-3" /> Switch Friend Profile
+              <div className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-xl border border-slate-200 py-2 hidden group-hover:block hover:block z-50">
+                <div className="px-3 py-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+                  <span className="flex items-center gap-1">
+                    <Users className="w-3 h-3" /> Switch User Profile
+                  </span>
+                  <span className="text-[10px] text-emerald-600 font-medium">Test Roles</span>
                 </div>
-                <div className="px-3 pb-2 text-xs text-slate-500">
-                  Simulate paying and opening files as different friends:
+                <div className="px-3 pb-2 text-[11px] text-slate-500">
+                  Switch between Admin (delete & manage permissions) and Friends:
                 </div>
-                <div className="divide-y divide-slate-100">
-                  {profiles.map(profile => (
-                    <button
-                      key={profile.id}
-                      onClick={() => onSelectUser(profile)}
-                      className={`w-full text-left px-3 py-2 flex items-center gap-2.5 hover:bg-slate-50 transition-colors ${
-                        profile.id === activeUser.id ? 'bg-emerald-50/60 font-medium' : ''
-                      }`}
-                    >
-                      <img
-                        src={profile.avatar}
-                        alt={profile.name}
-                        className="w-8 h-8 rounded-full object-cover"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-xs text-slate-800 flex items-center justify-between">
-                          <span className="truncate">{profile.name}</span>
-                          {profile.id === activeUser.id && (
-                            <span className="text-[10px] text-emerald-700 font-bold bg-emerald-100 px-1.5 py-0.5 rounded">Active</span>
+                <div className="divide-y divide-slate-100 max-h-72 overflow-y-auto">
+                  {profiles.map(profile => {
+                    const isProfileAdmin = profile.isAdmin || profile.role === 'admin' || profile.name === 'Abhiram Behera';
+                    return (
+                      <button
+                        key={profile.id}
+                        onClick={() => onSelectUser(profile)}
+                        className={`w-full text-left px-3 py-2.5 flex items-center gap-2.5 hover:bg-slate-50 transition-colors ${
+                          profile.id === activeUser.id ? 'bg-emerald-50/60 font-medium' : ''
+                        }`}
+                      >
+                        <div className="relative">
+                          <img
+                            src={profile.avatar}
+                            alt={profile.name}
+                            className="w-8 h-8 rounded-full object-cover"
+                          />
+                          {isProfileAdmin && (
+                            <span className="absolute -bottom-1 -right-1 bg-emerald-600 text-white p-0.5 rounded-full ring-1 ring-white">
+                              <Crown className="w-2.5 h-2.5" />
+                            </span>
                           )}
                         </div>
-                        <div className="text-[11px] text-slate-400 truncate">{profile.upiId}</div>
-                      </div>
-                    </button>
-                  ))}
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs text-slate-800 flex items-center justify-between gap-1">
+                            <span className="truncate font-semibold">{profile.name}</span>
+                            {profile.id === activeUser.id ? (
+                              <span className="text-[10px] text-emerald-700 font-bold bg-emerald-100 px-1.5 py-0.5 rounded">Active</span>
+                            ) : isProfileAdmin ? (
+                              <span className="text-[9px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 px-1 rounded">Admin</span>
+                            ) : null}
+                          </div>
+                          <div className="flex items-center justify-between text-[10px] text-slate-400 mt-0.5">
+                            <span className="truncate font-mono">{profile.upiId}</span>
+                            <span className="text-[9px] text-slate-500 shrink-0">
+                              {isProfileAdmin ? 'App Maker • Full Admin' : 'Friend / Viewer'}
+                            </span>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="mt-2 pt-2 px-3 border-t border-slate-100 text-[10px] text-slate-400 flex items-center gap-1.5">
+                  <Shield className="w-3 h-3 text-emerald-600 shrink-0" />
+                  <span>Only <strong>Abhiram Behera (Admin)</strong> can delete files.</span>
                 </div>
               </div>
             </div>

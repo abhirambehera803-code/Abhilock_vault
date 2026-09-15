@@ -1,11 +1,14 @@
 export type MediaType = 'pdf' | 'image' | 'video';
 
+export type UserRole = 'admin' | 'creator' | 'friend';
+
 export interface UserProfile {
   id: string;
   name: string;
   avatar: string;
   upiId: string;
-  role: 'creator' | 'friend';
+  role: UserRole;
+  isAdmin?: boolean;
   isCurrentUser?: boolean;
 }
 

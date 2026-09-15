@@ -2,11 +2,12 @@ import { MediaFile, UserProfile, UnlockRecord, SecurityEvent } from '../types';
 
 export const INITIAL_PROFILES: UserProfile[] = [
   {
-    id: 'user_rahul',
-    name: 'Rahul Sharma',
+    id: 'user_abhiram',
+    name: 'Abhiram Behera',
     avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
-    upiId: 'rahul.sharma@okaxis',
-    role: 'creator',
+    upiId: 'abhiram.behera@okaxis',
+    role: 'admin',
+    isAdmin: true,
     isCurrentUser: true,
   },
   {
@@ -42,10 +43,10 @@ export const INITIAL_FILES: MediaFile[] = [
     pageCount: 38,
     previewUrl: 'https://images.unsplash.com/photo-1517842645767-c639042777db?w=600&auto=format&fit=crop&q=80',
     price: 49,
-    creatorId: 'user_rahul',
-    creatorName: 'Rahul Sharma',
+    creatorId: 'user_abhiram',
+    creatorName: 'Abhiram Behera',
     creatorAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
-    creatorUpiId: 'rahul.sharma@okaxis',
+    creatorUpiId: 'abhiram.behera@okaxis',
     createdAt: 'Today, 2:15 PM',
     groupName: 'Batch 2026 Placement Squad',
     antiScreenshot: true,
@@ -67,10 +68,10 @@ export const INITIAL_FILES: MediaFile[] = [
     pageCount: 16,
     previewUrl: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?w=600&auto=format&fit=crop&q=80',
     price: 99,
-    creatorId: 'user_rahul',
-    creatorName: 'Rahul Sharma',
+    creatorId: 'user_abhiram',
+    creatorName: 'Abhiram Behera',
     creatorAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
-    creatorUpiId: 'rahul.sharma@okaxis',
+    creatorUpiId: 'abhiram.behera@okaxis',
     createdAt: 'Yesterday',
     groupName: 'Finance Study Hub',
     antiScreenshot: true,
@@ -170,7 +171,7 @@ const INITIAL_UNLOCKS: UnlockRecord[] = [
   },
   {
     fileId: 'file_goa_photos',
-    userId: 'user_rahul',
+    userId: 'user_abhiram',
     amountPaid: 29,
     unlockedAt: '2026-09-11 09:12',
     transactionRef: 'UPI/982371625482'
@@ -185,7 +186,25 @@ export const storageService = {
         safeSetItem(STORAGE_KEYS.FILES, JSON.stringify(INITIAL_FILES));
         return INITIAL_FILES;
       }
-      return JSON.parse(data);
+      const files: MediaFile[] = JSON.parse(data);
+      // Seamless migration: update any old mock references to App Maker Abhiram Behera
+      let modified = false;
+      const updatedFiles = files.map(file => {
+        if (file.creatorName === 'Rahul Sharma' || file.creatorId === 'user_rahul') {
+          modified = true;
+          return {
+            ...file,
+            creatorName: 'Abhiram Behera',
+            creatorId: 'user_abhiram',
+            creatorUpiId: 'abhiram.behera@okaxis',
+          };
+        }
+        return file;
+      });
+      if (modified) {
+        this.saveFiles(updatedFiles);
+      }
+      return updatedFiles;
     } catch {
       return INITIAL_FILES;
     }
@@ -205,6 +224,18 @@ export const storageService = {
     this.saveFiles(files);
   },
 
+  deleteFile(fileId: string): void {
+    const files = this.getFiles().filter(f => f.id !== fileId);
+    this.saveFiles(files);
+    // Clean up associated unlocks
+    try {
+      const unlocks = this.getUnlocks().filter(u => u.fileId !== fileId);
+      safeSetItem(STORAGE_KEYS.UNLOCKS, JSON.stringify(unlocks));
+    } catch {
+      // ignore
+    }
+  },
+
   getProfiles(): UserProfile[] {
     try {
       const data = safeGetItem(STORAGE_KEYS.PROFILES);
@@ -212,7 +243,44 @@ export const storageService = {
         safeSetItem(STORAGE_KEYS.PROFILES, JSON.stringify(INITIAL_PROFILES));
         return INITIAL_PROFILES;
       }
-      return JSON.parse(data);
+      const loaded: UserProfile[] = JSON.parse(data);
+      // Migrate old profile to Abhiram Behera (App Maker & Admin)
+      let needsSave = false;
+      const migrated = loaded.map(p => {
+        if (p.id === 'user_rahul' || p.name === 'Rahul Sharma') {
+          needsSave = true;
+          return {
+            ...p,
+            id: 'user_abhiram',
+            name: 'Abhiram Behera',
+            upiId: 'abhiram.behera@okaxis',
+            role: 'admin' as const,
+            isAdmin: true,
+            isCurrentUser: true,
+          };
+        }
+        if (p.name === 'Abhiram Behera' && (!p.isAdmin || p.role !== 'admin')) {
+          needsSave = true;
+          return {
+            ...p,
+            role: 'admin' as const,
+            isAdmin: true,
+          };
+        }
+        return p;
+      });
+
+      // Ensure Abhiram Behera exists as admin
+      const hasAbhiram = migrated.some(p => p.name === 'Abhiram Behera');
+      if (!hasAbhiram) {
+        migrated.unshift(INITIAL_PROFILES[0]);
+        needsSave = true;
+      }
+
+      if (needsSave) {
+        safeSetItem(STORAGE_KEYS.PROFILES, JSON.stringify(migrated));
+      }
+      return migrated;
     } catch {
       return INITIAL_PROFILES;
     }
@@ -221,7 +289,7 @@ export const storageService = {
   getActiveUserId(): string {
     try {
       const saved = safeGetItem(STORAGE_KEYS.ACTIVE_USER_ID);
-      if (saved) return saved;
+      if (saved && saved !== 'user_rahul') return saved;
     } catch {
       // fallback
     }

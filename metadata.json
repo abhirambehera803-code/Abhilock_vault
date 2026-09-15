@@ -1,6 +1,6 @@
 {
   "name": "LockVault - Secure Pay-to-Unlock Share",
-  "description": "Share PDFs, photos, and videos with friends. Files are protected behind custom QR payment locks with anti-screenshot protection, dynamic watermarks, and anti-piracy controls.",
+  "description": "Created by Abhiram Behera. Share PDFs, photos, and videos with friends. Files are protected behind custom QR payment locks with anti-screenshot protection, dynamic watermarks, and admin delete controls.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
