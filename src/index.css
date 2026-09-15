@@ -1,0 +1,39 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* Hardened Print and Screenshot Defenses */
+@media print {
+  html, body {
+    display: none !important;
+    visibility: hidden !important;
+  }
+}
+
+/* DRM watermark patterns and capture shield */
+.drm-protected-content {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+.watermark-overlay-grid {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgba(0, 0, 0, 0.03) 0,
+    rgba(0, 0, 0, 0.03) 1px,
+    transparent 0,
+    transparent 50px
+  );
+  pointer-events: none;
+}
+

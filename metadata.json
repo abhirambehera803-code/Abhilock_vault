@@ -1,0 +1,6 @@
+{
+  "name": "LockVault - Secure Pay-to-Unlock Share",
+  "description": "Share PDFs, photos, and videos with friends. Files are protected behind custom QR payment locks with anti-screenshot protection, dynamic watermarks, and anti-piracy controls.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
