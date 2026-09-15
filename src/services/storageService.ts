@@ -179,6 +179,23 @@ const INITIAL_UNLOCKS: UnlockRecord[] = [
 ];
 
 export const storageService = {
+  // Sync files from server (accessible across all devices and friends)
+  async fetchServerFiles(): Promise<MediaFile[]> {
+    try {
+      const res = await fetch('/api/files');
+      if (res.ok) {
+        const serverFiles: MediaFile[] = await res.json();
+        if (Array.isArray(serverFiles) && serverFiles.length > 0) {
+          safeSetItem(STORAGE_KEYS.FILES, JSON.stringify(serverFiles));
+          return serverFiles;
+        }
+      }
+    } catch {
+      // Fallback to local storage if server is still starting
+    }
+    return this.getFiles();
+  },
+
   getFiles(): MediaFile[] {
     try {
       const data = safeGetItem(STORAGE_KEYS.FILES);
@@ -218,13 +235,24 @@ export const storageService = {
     }
   },
 
-  addFile(file: MediaFile): void {
+  async addFile(file: MediaFile): Promise<void> {
     const files = this.getFiles();
     files.unshift(file);
     this.saveFiles(files);
+
+    // Save to server backend so friends on any device receive this file immediately
+    try {
+      await fetch('/api/files', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(file),
+      });
+    } catch (err) {
+      console.warn('Network notice: File saved locally, server sync error:', err);
+    }
   },
 
-  deleteFile(fileId: string): void {
+  async deleteFile(fileId: string, adminPin: string = '6969'): Promise<void> {
     const files = this.getFiles().filter(f => f.id !== fileId);
     this.saveFiles(files);
     // Clean up associated unlocks
@@ -233,6 +261,19 @@ export const storageService = {
       safeSetItem(STORAGE_KEYS.UNLOCKS, JSON.stringify(unlocks));
     } catch {
       // ignore
+    }
+
+    // Call server to delete permanently from central database
+    try {
+      await fetch(`/api/files/${fileId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-pin': adminPin,
+        },
+      });
+    } catch (err) {
+      console.warn('Server delete error:', err);
     }
   },
 
