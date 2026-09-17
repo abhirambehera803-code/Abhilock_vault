@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Response } from 'express';
 import path from 'path';
 import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
@@ -6,7 +6,7 @@ import { createServer as createViteServer } from 'vite';
 const app = express();
 const PORT = 3000;
 
-// Body parsers with large limit for PDF uploads
+// Body parsers with 50mb limit for PDF and media uploads
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
@@ -14,6 +14,7 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 const DATA_DIR = path.join(process.cwd(), 'data');
 const FILES_PATH = path.join(DATA_DIR, 'files.json');
 const UNLOCKS_PATH = path.join(DATA_DIR, 'unlocks.json');
+const MESSAGES_PATH = path.join(DATA_DIR, 'messages.json');
 
 // Ensure data folder exists
 if (!fs.existsSync(DATA_DIR)) {
@@ -114,6 +115,28 @@ const INITIAL_SEED_FILES = [
   }
 ];
 
+const INITIAL_MESSAGES = [
+  {
+    id: 'msg_welcome_1',
+    senderId: 'user_abhiram',
+    senderName: 'Abhiram Behera (Admin)',
+    senderAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+    senderRole: 'admin',
+    text: 'Namaste doston! Maine latest DSA aur financial notes yahan website pe share kar diye hain. QR scan karke pay karo aur turant unlock karo!',
+    timestamp: 'Just now',
+    systemEvent: false,
+  },
+  {
+    id: 'msg_welcome_2',
+    senderId: 'system',
+    senderName: 'LockVault Live System',
+    senderAvatar: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=150&auto=format&fit=crop&q=80',
+    text: '⚡ Live synchronization active. Kisi bhi document ko drag/drop karo, wo turant sabhi doston ke screens pe live dikhega!',
+    timestamp: 'Just now',
+    systemEvent: true,
+  }
+];
+
 // Helper functions for reading/writing persistent data
 function readStoredFiles(): any[] {
   try {
@@ -127,7 +150,6 @@ function readStoredFiles(): any[] {
   } catch (err) {
     console.error('Error reading files.json:', err);
   }
-  // Initialize with seed files
   writeStoredFiles(INITIAL_SEED_FILES);
   return INITIAL_SEED_FILES;
 }
@@ -160,13 +182,87 @@ function writeStoredUnlocks(unlocks: any[]): void {
   }
 }
 
-// In-memory cache synced with disk
+function readStoredMessages(): any[] {
+  try {
+    if (fs.existsSync(MESSAGES_PATH)) {
+      const data = fs.readFileSync(MESSAGES_PATH, 'utf-8');
+      const parsed = JSON.parse(data);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch (err) {
+    console.error('Error reading messages.json:', err);
+  }
+  writeStoredMessages(INITIAL_MESSAGES);
+  return INITIAL_MESSAGES;
+}
+
+function writeStoredMessages(messages: any[]): void {
+  try {
+    fs.writeFileSync(MESSAGES_PATH, JSON.stringify(messages, null, 2), 'utf-8');
+  } catch (err) {
+    console.error('Error writing messages.json:', err);
+  }
+}
+
+// In-memory data synced with disk
 let memoryFiles = readStoredFiles();
 let memoryUnlocks = readStoredUnlocks();
+let memoryMessages = readStoredMessages();
+
+// Server-Sent Events (SSE) subscribers for real-time live synchronization
+const sseClients: Response[] = [];
+
+function broadcastEvent(eventData: any) {
+  const payload = `data: ${JSON.stringify(eventData)}\n\n`;
+  for (let i = sseClients.length - 1; i >= 0; i--) {
+    const client = sseClients[i];
+    try {
+      client.write(payload);
+    } catch {
+      sseClients.splice(i, 1);
+    }
+  }
+}
+
+// Keep-alive heartbeat every 15s to prevent cloud proxy disconnects
+setInterval(() => {
+  const pingPayload = `: keep-alive\n\n`;
+  for (let i = sseClients.length - 1; i >= 0; i--) {
+    const client = sseClients[i];
+    try {
+      client.write(pingPayload);
+    } catch {
+      sseClients.splice(i, 1);
+    }
+  }
+}, 15000);
 
 // API ROUTES
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', serverTime: new Date().toISOString(), filesCount: memoryFiles.length });
+  res.json({
+    status: 'ok',
+    serverTime: new Date().toISOString(),
+    filesCount: memoryFiles.length,
+    activeSubscribers: sseClients.length
+  });
+});
+
+// SSE Real-time live synchronization endpoint
+app.get('/api/live-stream', (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders?.();
+
+  // Send immediate initial sync
+  res.write(`data: ${JSON.stringify({ type: 'CONNECTED', serverTime: new Date().toISOString(), filesCount: memoryFiles.length })}\n\n`);
+
+  sseClients.push(res);
+
+  req.on('close', () => {
+    const idx = sseClients.indexOf(res);
+    if (idx !== -1) sseClients.splice(idx, 1);
+  });
 });
 
 // 1. GET all files (accessible to all friends & visitors)
@@ -174,7 +270,7 @@ app.get('/api/files', (req, res) => {
   res.json(memoryFiles);
 });
 
-// 2. POST upload new file (saves directly to server so all friends can see it)
+// 2. POST upload new file (instant upload & realtime broadcast to all friends)
 app.post('/api/files', (req, res) => {
   try {
     const file = req.body;
@@ -184,14 +280,33 @@ app.post('/api/files', (req, res) => {
 
     const newFile = {
       ...file,
-      id: file.id || 'file_' + Date.now(),
+      id: file.id || 'file_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
       createdAt: file.createdAt || 'Just now',
       unlockCount: file.unlockCount || 0,
+      price: typeof file.price === 'number' ? file.price : 49,
     };
 
     // Prepend new file so newest appears first
     memoryFiles = [newFile, ...memoryFiles.filter(f => f.id !== newFile.id)];
     writeStoredFiles(memoryFiles);
+
+    // Broadcast file to all connected friends instantly
+    broadcastEvent({ type: 'NEW_FILE', file: newFile });
+
+    // Also auto-post a live chat announcement
+    const announceMsg = {
+      id: 'msg_ann_' + Date.now(),
+      senderId: 'system',
+      senderName: 'LockVault Live Alert',
+      senderAvatar: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=150&auto=format&fit=crop&q=80',
+      text: `📄 Naya Document Upload Hua: "${newFile.title}" (${newFile.type.toUpperCase()}) by ${newFile.creatorName}! Baki sab QR se ₹${newFile.price} deke unlock kar sakte hain.`,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      systemEvent: true,
+    };
+    memoryMessages.push(announceMsg);
+    if (memoryMessages.length > 100) memoryMessages.shift();
+    writeStoredMessages(memoryMessages);
+    broadcastEvent({ type: 'NEW_MESSAGE', message: announceMsg });
 
     res.status(201).json(newFile);
   } catch (err: any) {
@@ -200,7 +315,7 @@ app.post('/api/files', (req, res) => {
   }
 });
 
-// 3. DELETE file (Admin only)
+// 3. DELETE file (Admin only - secret PIN 6969 verified)
 app.delete('/api/files/:id', (req, res) => {
   const { id } = req.params;
   const adminPin = req.headers['x-admin-pin'] as string;
@@ -209,16 +324,35 @@ app.delete('/api/files/:id', (req, res) => {
     return res.status(403).json({ error: 'Access Denied: Only Admin Abhiram Behera can delete files.' });
   }
 
+  const deletedFile = memoryFiles.find(f => f.id === id);
   memoryFiles = memoryFiles.filter(f => f.id !== id);
   writeStoredFiles(memoryFiles);
 
   memoryUnlocks = memoryUnlocks.filter(u => u.fileId !== id);
   writeStoredUnlocks(memoryUnlocks);
 
+  // Broadcast deletion to all users live
+  broadcastEvent({ type: 'FILE_DELETED', fileId: id });
+
+  if (deletedFile) {
+    const delMsg = {
+      id: 'msg_del_' + Date.now(),
+      senderId: 'system',
+      senderName: 'Admin Alert',
+      senderAvatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+      text: `🗑️ Document "${deletedFile.title}" was removed by Admin Abhiram Behera.`,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      systemEvent: true,
+    };
+    memoryMessages.push(delMsg);
+    writeStoredMessages(memoryMessages);
+    broadcastEvent({ type: 'NEW_MESSAGE', message: delMsg });
+  }
+
   res.json({ success: true, message: 'File permanently deleted by Admin' });
 });
 
-// 4. POST verify admin PIN
+// 4. POST verify admin PIN (Secret: 6969)
 app.post('/api/admin/verify-pin', (req, res) => {
   const { pin } = req.body;
   if (pin === '6969') {
@@ -257,7 +391,46 @@ app.post('/api/unlocks', (req, res) => {
     writeStoredFiles(memoryFiles);
   }
 
+  // Broadcast unlock event to update live stats across all friends
+  broadcastEvent({ type: 'NEW_UNLOCK', record, fileId: record.fileId });
+
   res.status(201).json({ success: true, record });
+});
+
+// 6. Live Chat Messages ("Live baat karne kaa")
+app.get('/api/messages', (req, res) => {
+  res.json(memoryMessages);
+});
+
+app.post('/api/messages', (req, res) => {
+  try {
+    const { senderId, senderName, senderAvatar, senderRole, text } = req.body;
+    if (!text || !text.trim()) {
+      return res.status(400).json({ error: 'Message text is required' });
+    }
+
+    const newMsg = {
+      id: 'msg_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+      senderId: senderId || 'guest',
+      senderName: senderName || 'Friend',
+      senderAvatar: senderAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+      senderRole: senderRole || 'friend',
+      text: text.trim(),
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      systemEvent: false,
+    };
+
+    memoryMessages.push(newMsg);
+    if (memoryMessages.length > 100) memoryMessages.shift();
+    writeStoredMessages(memoryMessages);
+
+    // Broadcast message to all active users live
+    broadcastEvent({ type: 'NEW_MESSAGE', message: newMsg });
+
+    res.status(201).json(newMsg);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to post message' });
+  }
 });
 
 // Vite middleware setup
@@ -277,7 +450,7 @@ async function startServer() {
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`LockVault DRM Server running on http://0.0.0.0:${PORT}`);
+    console.log(`LockVault Live Server running on http://0.0.0.0:${PORT}`);
   });
 }
 

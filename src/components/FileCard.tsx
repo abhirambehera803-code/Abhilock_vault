@@ -11,9 +11,11 @@ interface FileCardProps {
   activeUser: UserProfile;
   isUnlocked: boolean;
   isOwner: boolean;
+  isVerifiedAdmin?: boolean;
   onOpenPaywall: (file: MediaFile) => void;
   onOpenViewer: (file: MediaFile) => void;
   onDeleteFile?: (file: MediaFile) => void;
+  onPromptAdminPin?: () => void;
 }
 
 export const FileCard: React.FC<FileCardProps> = ({
@@ -21,18 +23,22 @@ export const FileCard: React.FC<FileCardProps> = ({
   activeUser,
   isUnlocked,
   isOwner,
+  isVerifiedAdmin = false,
   onOpenPaywall,
   onOpenViewer,
   onDeleteFile,
+  onPromptAdminPin,
 }) => {
   const [showSampleModal, setShowSampleModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
-  const isAdmin = Boolean(
+  const isAdminUser = Boolean(
     activeUser.isAdmin || 
     activeUser.role === 'admin' || 
     activeUser.name === 'Abhiram Behera'
   );
+
+  const canPerformAdminDelete = isAdminUser && isVerifiedAdmin;
 
   const handleAction = () => {
     if (isOwner || isUnlocked) {
@@ -334,8 +340,8 @@ export const FileCard: React.FC<FileCardProps> = ({
               </div>
             )}
 
-            {/* Admin Delete Action Bar (Strictly available ONLY to Admin - Abhiram Behera) */}
-            {isAdmin && (
+            {/* Admin Delete Action Bar (Strictly available ONLY to verified Admin - Abhiram Behera) */}
+            {canPerformAdminDelete ? (
               <div className="pt-2.5 border-t border-rose-100 flex items-center justify-between bg-rose-50/70 -mx-4 -mb-4 px-4 py-2 mt-2 rounded-b-2xl">
                 <div className="flex items-center gap-1 text-[10px] font-bold text-rose-700">
                   <Crown className="w-3 h-3 text-rose-600" />
@@ -354,7 +360,21 @@ export const FileCard: React.FC<FileCardProps> = ({
                   <span>Delete</span>
                 </button>
               </div>
-            )}
+            ) : isAdminUser && !isVerifiedAdmin && onPromptAdminPin ? (
+              <div className="pt-2.5 border-t border-amber-100 flex items-center justify-between bg-amber-50/70 -mx-4 -mb-4 px-4 py-2 mt-2 rounded-b-2xl">
+                <span className="text-[10px] text-amber-800 font-medium">Admin actions locked</span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onPromptAdminPin();
+                  }}
+                  className="px-2 py-0.5 bg-slate-900 text-emerald-400 rounded-md text-[10px] font-bold hover:bg-slate-800 transition-colors"
+                >
+                  Enter PIN
+                </button>
+              </div>
+            ) : null}
           </div>
         </div>
       </div>

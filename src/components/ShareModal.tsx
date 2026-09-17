@@ -3,10 +3,11 @@ import QRCode from 'qrcode';
 import { X, Copy, Check, Share2, MessageCircle, ExternalLink, Globe } from 'lucide-react';
 
 interface ShareModalProps {
+  isOpen?: boolean;
   onClose: () => void;
 }
 
-export const ShareModal: React.FC<ShareModalProps> = ({ onClose }) => {
+export const ShareModal: React.FC<ShareModalProps> = ({ isOpen = false, onClose }) => {
   const [copied, setCopied] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState('');
 
@@ -25,6 +26,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({ onClose }) => {
   })();
 
   useEffect(() => {
+    if (!isOpen) return;
     QRCode.toDataURL(appUrl, {
       width: 240,
       margin: 2,
@@ -35,7 +37,9 @@ export const ShareModal: React.FC<ShareModalProps> = ({ onClose }) => {
     })
       .then((url: string) => setQrCodeUrl(url))
       .catch((err: unknown) => console.error(err));
-  }, [appUrl]);
+  }, [appUrl, isOpen]);
+
+  if (!isOpen) return null;
 
   const handleCopyLink = async () => {
     try {

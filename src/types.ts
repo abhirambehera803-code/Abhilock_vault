@@ -54,3 +54,15 @@ export interface SecurityEvent {
   action: 'screenshot_attempt' | 'screen_recording_detected' | 'print_blocked' | 'window_unfocused';
   details: string;
 }
+
+export interface ChatMessage {
+  id: string;
+  senderId: string;
+  senderName: string;
+  senderAvatar: string;
+  senderRole?: UserRole;
+  text: string;
+  timestamp: string;
+  systemEvent?: boolean;
+}
+

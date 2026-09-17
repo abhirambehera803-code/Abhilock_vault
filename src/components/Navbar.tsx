@@ -1,6 +1,7 @@
 import React from 'react';
-import { ShieldCheck, Plus, IndianRupee, Users, Lock, ShieldAlert, ChevronDown, Share2, Crown, Shield } from 'lucide-react';
+import { ShieldCheck, Plus, IndianRupee, Users, Lock, ShieldAlert, ChevronDown, Share2, Crown, Shield, MessageSquare, Zap } from 'lucide-react';
 import { UserProfile } from '../types';
+
 
 interface NavbarProps {
   activeUser: UserProfile;
@@ -10,8 +11,12 @@ interface NavbarProps {
   onOpenEarnings: () => void;
   onOpenSecurityLogs: () => void;
   onOpenShare: () => void;
+  onOpenLiveChat?: () => void;
   creatorEarnings: number;
   blockedAttemptsCount: number;
+  isLiveConnected?: boolean;
+  isVerifiedAdmin?: boolean;
+  onOpenAdminLogin?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -22,8 +27,12 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenEarnings,
   onOpenSecurityLogs,
   onOpenShare,
+  onOpenLiveChat,
   creatorEarnings,
   blockedAttemptsCount,
+  isLiveConnected = true,
+  isVerifiedAdmin = false,
+  onOpenAdminLogin,
 }) => {
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200">
@@ -40,13 +49,33 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <span className="px-2 py-0.5 text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full flex items-center gap-1">
                   <ShieldCheck className="w-3 h-3" /> Anti-Piracy DRM
                 </span>
+                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                  isLiveConnected 
+                    ? 'bg-emerald-100 text-emerald-800' 
+                    : 'bg-amber-100 text-amber-800'
+                }`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${isLiveConnected ? 'bg-emerald-500 animate-ping' : 'bg-amber-500'}`} />
+                  {isLiveConnected ? 'LIVE' : 'SYNCING'}
+                </span>
               </div>
               <p className="text-xs text-slate-500 hidden sm:block">Pay-to-Unlock Media & Anti-Screenshot Share</p>
             </div>
           </div>
 
-          {/* Center Info / Earnings pill */}
+          {/* Center Info / Live Chat / Earnings pill */}
           <div className="hidden md:flex items-center gap-3">
+            {onOpenLiveChat && (
+              <button
+                onClick={onOpenLiveChat}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-sm transition-all"
+                title="Open live chat and updates"
+              >
+                <MessageSquare className="w-3.5 h-3.5" />
+                <span>Live Chat & Updates</span>
+                <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+              </button>
+            )}
+
             <button
               onClick={onOpenEarnings}
               className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-medium transition-colors"
@@ -79,9 +108,9 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <div className="text-left hidden sm:block">
                   <div className="text-xs font-semibold text-slate-800 flex items-center gap-1">
                     {activeUser.name}
-                    {(activeUser.isAdmin || activeUser.role === 'admin' || activeUser.name === 'Abhiram Behera') ? (
+                    {(activeUser.isAdmin && isVerifiedAdmin) ? (
                       <span className="text-[9px] bg-emerald-700 text-white px-1.5 py-0.2 rounded-full font-bold flex items-center gap-0.5">
-                        <Crown className="w-2.5 h-2.5" /> App Maker • Admin
+                        <Crown className="w-2.5 h-2.5" /> Admin (Verified)
                       </span>
                     ) : activeUser.role === 'creator' ? (
                       <span className="text-[10px] bg-slate-800 text-white px-1 rounded">Creator</span>
@@ -103,7 +132,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                   <span className="text-[10px] text-emerald-600 font-medium">Test Roles</span>
                 </div>
                 <div className="px-3 pb-2 text-[11px] text-slate-500">
-                  Switch between Admin (delete & manage permissions) and Friends:
+                  Switch between Admin and Friend profiles:
                 </div>
                 <div className="divide-y divide-slate-100 max-h-72 overflow-y-auto">
                   {profiles.map(profile => {
@@ -111,7 +140,13 @@ export const Navbar: React.FC<NavbarProps> = ({
                     return (
                       <button
                         key={profile.id}
-                        onClick={() => onSelectUser(profile)}
+                        onClick={() => {
+                          if (isProfileAdmin && !isVerifiedAdmin && onOpenAdminLogin) {
+                            onOpenAdminLogin();
+                          } else {
+                            onSelectUser(profile);
+                          }
+                        }}
                         className={`w-full text-left px-3 py-2.5 flex items-center gap-2.5 hover:bg-slate-50 transition-colors ${
                           profile.id === activeUser.id ? 'bg-emerald-50/60 font-medium' : ''
                         }`}
@@ -140,7 +175,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                           <div className="flex items-center justify-between text-[10px] text-slate-400 mt-0.5">
                             <span className="truncate font-mono">{profile.upiId}</span>
                             <span className="text-[9px] text-slate-500 shrink-0">
-                              {isProfileAdmin ? 'App Maker • Full Admin' : 'Friend / Viewer'}
+                              {isProfileAdmin ? 'Admin (PIN Protected)' : 'Friend / Viewer'}
                             </span>
                           </div>
                         </div>
@@ -150,10 +185,21 @@ export const Navbar: React.FC<NavbarProps> = ({
                 </div>
                 <div className="mt-2 pt-2 px-3 border-t border-slate-100 text-[10px] text-slate-400 flex items-center gap-1.5">
                   <Shield className="w-3 h-3 text-emerald-600 shrink-0" />
-                  <span>Only <strong>Abhiram Behera (Admin)</strong> can delete files.</span>
+                  <span>Only verified <strong>Admin (Abhiram Behera)</strong> can delete files.</span>
                 </div>
               </div>
             </div>
+
+            {/* Mobile live chat trigger */}
+            {onOpenLiveChat && (
+              <button
+                onClick={onOpenLiveChat}
+                className="md:hidden p-2 rounded-xl bg-emerald-600 text-white shadow-sm"
+                title="Live Discussion"
+              >
+                <MessageSquare className="w-4 h-4" />
+              </button>
+            )}
 
             {/* Share App Link Button */}
             <button
@@ -180,3 +226,4 @@ export const Navbar: React.FC<NavbarProps> = ({
     </header>
   );
 };
+

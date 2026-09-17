@@ -364,40 +364,79 @@ export const storageService = {
     }
   },
 
-  recordUnlock(fileId: string, userId: string, amountPaid: number, transactionRef: string): void {
+  async recordUnlock(fileId: string, userId: string, amountPaid: number, transactionRef: string): Promise<void> {
     try {
       const unlocks = this.getUnlocks();
       const exists = unlocks.some(u => u.fileId === fileId && u.userId === userId);
+      const newRecord: UnlockRecord = {
+        fileId,
+        userId,
+        amountPaid,
+        unlockedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' }),
+        transactionRef
+      };
       if (!exists) {
-        unlocks.unshift({
-          fileId,
-          userId,
-          amountPaid,
-          unlockedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: 'numeric' }),
-          transactionRef
-        });
+        unlocks.unshift(newRecord);
         safeSetItem(STORAGE_KEYS.UNLOCKS, JSON.stringify(unlocks));
 
-        // Increment file counter
+        // Increment file counter locally
         const files = this.getFiles();
         const fileIndex = files.findIndex(f => f.id === fileId);
         if (fileIndex >= 0) {
           files[fileIndex].unlockCount += 1;
           this.saveFiles(files);
         }
+
+        // Post to server backend
+        await fetch('/api/unlocks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(newRecord),
+        }).catch(() => {});
       }
     } catch {
       // ignore
     }
   },
 
-  isFileUnlockedForUser(file: MediaFile, userId: string): boolean {
-    // Creator always has free access
+  isFileUnlockedForUser(file: MediaFile, userId: string, isVerifiedAdmin: boolean = false): boolean {
+    // Verified Admin Abhiram Behera (authenticated with PIN 6969) has master bypass
+    if (isVerifiedAdmin) return true;
+    // The person who uploaded this document has free access to their own document
     if (file.creatorId === userId) return true;
-    // Free files are unlocked
+    // Free files
     if (file.price === 0) return true;
+    // Baki sab ko QR me paise dekar unlock karna padega
     const unlocks = this.getUnlocks();
     return unlocks.some(u => u.fileId === file.id && u.userId === userId);
+  },
+
+  async fetchServerMessages(): Promise<any[]> {
+    try {
+      const res = await fetch('/api/messages');
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch {
+      // fallback
+    }
+    return [];
+  },
+
+  async sendServerMessage(msg: { senderId: string; senderName: string; senderAvatar: string; senderRole?: string; text: string }): Promise<any> {
+    try {
+      const res = await fetch('/api/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(msg),
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch {
+      // fallback
+    }
+    return null;
   },
 
   getSecurityLogs(): SecurityEvent[] {

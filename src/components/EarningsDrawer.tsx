@@ -3,36 +3,40 @@ import { X, IndianRupee, Users, TrendingUp, ShieldCheck, CheckCircle2 } from 'lu
 import { MediaFile, UnlockRecord, UserProfile } from '../types';
 
 interface EarningsDrawerProps {
+  isOpen?: boolean;
   activeUser: UserProfile;
-  files: MediaFile[];
-  unlocks: UnlockRecord[];
-  profiles: UserProfile[];
+  files?: MediaFile[];
+  unlocks?: UnlockRecord[];
+  profiles?: UserProfile[];
   onClose: () => void;
 }
 
 export const EarningsDrawer: React.FC<EarningsDrawerProps> = ({
+  isOpen = false,
   activeUser,
-  files,
-  unlocks,
-  profiles,
+  files = [],
+  unlocks = [],
+  profiles = [],
   onClose,
 }) => {
+  if (!isOpen) return null;
+
   // Find all files created by the active user
-  const userFiles = files.filter(f => f.creatorId === activeUser.id);
+  const userFiles = (files || []).filter(f => f.creatorId === activeUser.id);
   const userFileIds = new Set(userFiles.map(f => f.id));
 
   // Find all unlocks on this creator's files
-  const creatorUnlocks = unlocks.filter(u => userFileIds.has(u.fileId));
+  const creatorUnlocks = (unlocks || []).filter(u => userFileIds.has(u.fileId));
 
   // Calculate total earnings
   const totalEarned = creatorUnlocks.reduce((sum, u) => sum + u.amountPaid, 0);
 
   const getProfile = (userId: string) => {
-    return profiles.find(p => p.id === userId);
+    return (profiles || []).find(p => p.id === userId);
   };
 
   const getFile = (fileId: string) => {
-    return files.find(f => f.id === fileId);
+    return (files || []).find(f => f.id === fileId);
   };
 
   return (

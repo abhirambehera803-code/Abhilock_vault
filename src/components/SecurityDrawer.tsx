@@ -4,16 +4,23 @@ import { SecurityEvent } from '../types';
 import { storageService } from '../services/storageService';
 
 interface SecurityDrawerProps {
-  logs: SecurityEvent[];
+  isOpen?: boolean;
+  logs?: SecurityEvent[];
+  events?: SecurityEvent[];
   onClose: () => void;
-  onClearLogs: () => void;
+  onClearLogs?: () => void;
 }
 
 export const SecurityDrawer: React.FC<SecurityDrawerProps> = ({
+  isOpen = false,
   logs,
+  events,
   onClose,
   onClearLogs,
 }) => {
+  if (!isOpen) return null;
+
+  const displayLogs = logs || events || [];
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="w-full max-w-md bg-white h-full shadow-2xl flex flex-col border-l border-slate-200 animate-in slide-in-from-right duration-200">
@@ -83,14 +90,14 @@ export const SecurityDrawer: React.FC<SecurityDrawerProps> = ({
             </div>
           </div>
 
-          {/* Intercepted Events Log */}
+            {/* Intercepted Events Log */}
           <div>
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
                 <AlertTriangle className="w-4 h-4 text-amber-600" />
-                Intercepted Capture Events ({logs.length})
+                Intercepted Capture Events ({displayLogs.length})
               </h3>
-              {logs.length > 0 && (
+              {displayLogs.length > 0 && onClearLogs && (
                 <button
                   onClick={onClearLogs}
                   className="text-[11px] text-slate-400 hover:text-rose-600"
@@ -101,13 +108,13 @@ export const SecurityDrawer: React.FC<SecurityDrawerProps> = ({
             </div>
 
             <div className="space-y-2">
-              {logs.length === 0 ? (
+              {displayLogs.length === 0 ? (
                 <div className="text-xs text-slate-400 p-6 text-center bg-slate-50 rounded-xl border border-slate-200">
                   <ShieldCheck className="w-8 h-8 text-emerald-500 mx-auto mb-2 opacity-60" />
                   No unauthorized screenshot or print attempts recorded yet.
                 </div>
               ) : (
-                logs.map((log) => (
+                displayLogs.map((log) => (
                   <div
                     key={log.id}
                     className="p-3 bg-rose-50/50 rounded-xl border border-rose-200 text-xs space-y-1"
